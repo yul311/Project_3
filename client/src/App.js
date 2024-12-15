@@ -1,33 +1,43 @@
 import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import WelcomePage from "./components/WelcomePage";
+import LobbyPage from "./components/LobbyPage";
+import io from "socket.io-client";
 
 const App = () => {
   const [username, setUsername] = useState("");
-  const [room, setRoom] = useState("");
+  const [lobby, setLobby] = useState("");
+  const [players, setPlayers] = useState([]);
 
-  const setUsernameAndRoom = (user, roomName) => {
-    setUsername(user);
-    setRoom(roomName);
+  const joinLobby = (name, lobby) => {
+    setUsername(name);
+    setLobby(lobby);
+    setPlayers((prev) => [...prev, name]); // Add the user to the players list
   };
 
-  const createRoom = (user, roomId) => {
-    setUsername(user);
-    setRoom(roomId);
-    console.log("Created and joined room:", roomId, "as", user);
+  const startGame = (drawTime, rounds, prompts) => {
+    console.log("Game started with settings:");
+    console.log("Draw Time:", drawTime);
+    console.log("Rounds:", rounds);
+    console.log("Prompts:", prompts);
   };
 
   return (
-    <div>
-      <WelcomePage
-        setUsernameAndRoom={setUsernameAndRoom} // Pass the join room function
-        createRoom={createRoom} // Pass the create room function
-      />
-      {username && room && (
-        <p>
-          {username} joined room {room}.
-        </p>
-      )}
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<WelcomePage joinLobby={joinLobby} />} />
+        <Route
+          path="/lobbypage/:lobby"
+          element={
+            <LobbyPage
+              username={username}
+              players={players}
+              onStartGame={startGame}
+            />
+          }
+        />
+      </Routes>
+    </Router>
   );
 };
 

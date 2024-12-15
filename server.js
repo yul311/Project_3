@@ -1,6 +1,9 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const cors = require("cors");
+const lobbiesRouter = require("./routes/lobbies");
+const gamesRouter = require("./routes/games");
 
 const app = express();
 const server = http.createServer(app);
@@ -11,14 +14,27 @@ const io = new Server(server, {
   },
 });
 
-const gameRooms = {};
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes
+app.use("/api/lobbies", lobbiesRouter);
 
 io.on("connection", (socket) => {
-  console.log(`A user connected: ${socket.id}`);
+  console.log(`A player connected: ${socket.id}`);
 
   socket.on("disconnect", () => {
-    console.log(`A user disconnected: ${socket.id}`);
+    console.log(`A player disconnected: ${socket.id}`);
   });
+
+  // Join a lobby room
+  socket.on("joinLobby", (username, lobby) => {
+    socket.join(lobby);
+    io.to(lobby).emit(`${username} joined the lobby`);
+  });
+
+  // socket.on("createLobby", username);
 
   // Send initial drawing data to a new user
   socket.on("requestInitialDrawing", (room) => {
@@ -45,29 +61,6 @@ io.on("connection", (socket) => {
   socket.on("chatMessage", (room, inputMessage) => {
     io.to(room).emit("chatMessage", inputMessage); // Broadcast the message to the room
     console.log(`Chat message in room ${room}:`, inputMessage);
-  });
-
-  // Handle creating a new room
-  socket.on("createRoom", (room, username) => {
-    if (!gameRooms[room]) {
-      gameRooms[room] = { users: [] };
-    }
-    gameRooms[room].users.push(username);
-    socket.join(room);
-    io.to(room).emit("roomUpdate", gameRooms[room].users);
-    console.log(`User ${username} joined room: ${room}`);
-  });
-
-  // Handle user leaving a room
-  socket.on("leaveRoom", (room, username) => {
-    if (gameRooms[room]) {
-      gameRooms[room].users = gameRooms[room].users.filter(
-        (user) => user !== username
-      );
-      socket.leave(room); // Leave the room
-      if (gameRooms[room].users.length === 0) delete gameRooms[room]; // Delete room if empty
-      io.to(room).emit("roomUpdate", gameRooms[room]?.users || []); // Update room users
-    }
   });
 });
 
