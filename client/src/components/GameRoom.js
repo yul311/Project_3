@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import io from "socket.io-client";
+import socket from "../services/socket";
 import DrawingCanvas from "./DrawingCanvas";
 import ChatBox from "./ChatBox";
 
-const GameRoom = ({ username, room }) => {
+const GameRoom = ({ gameRoomId, lobbyId }) => {
   const [drawingData, setDrawingData] = useState([]);
-  const [socket, setSocket] = useState(null);
   const [side, setSide] = useState("left"); // Default side set to 'left'
-
   const [brushColor, setBrushColor] = useState("#000000"); // Default black
   const [brushSize, setBrushSize] = useState(5); // Default size 5
   const clearCanvasRef = useRef(null);
@@ -15,34 +13,37 @@ const GameRoom = ({ username, room }) => {
   // Room settings: Players, Drawtime, Rounds, Storage for Prompts
 
   useEffect(() => {
-    const newSocket = io("http://localhost:4000"); // Replace with your server URL
-    setSocket(newSocket);
+    const handleInitialDrawing = (data) => {
+      console.log("Received initial drawing data:", data);
+      setDrawingData(data.drawingData || []);
+    };
 
-    // Listen for initial drawing data
-    newSocket.on("initialDrawing", (data) => {
-      setDrawingData(data);
-    });
-
-    // Listen for updates from other users
-    newSocket.on("updateDrawing", (data) => {
+    const handleUpdateDrawing = (data) => {
       setDrawingData((prevData) => [...prevData, data]);
-    });
+    };
 
-    // Listen for clear events from the server
-    newSocket.on("clearDrawing", () => {
-      handleClear(); // Clear local drawing data
-    });
+    const handleClearDrawing = () => {
+      console.log("Clearing drawing data");
+      setDrawingData([]);
+    };
 
-    // Cleanup on component unmount
-    return () => newSocket.disconnect();
+    socket.on("initialDrawing", handleInitialDrawing);
+    socket.on("updateDrawing", handleUpdateDrawing);
+    socket.on("clearDrawing", handleClearDrawing);
+
+    socket.emit("requestInitialDrawing");
+
+    return () => {
+      socket.off("initialDrawing");
+      socket.off("updateDrawing");
+      socket.off("clearDrawing");
+    };
   }, []);
 
   const handleDraw = (newDrawingPoint) => {
     // Add locally and emit to server
     setDrawingData((prevData) => [...prevData, newDrawingPoint]);
-    if (socket) {
-      socket.emit("drawing", newDrawingPoint);
-    }
+    socket.emit("drawing", { data: newDrawingPoint });
   };
 
   const handleSideChange = (newSide) => {
@@ -64,7 +65,7 @@ const GameRoom = ({ username, room }) => {
 
   return (
     <div>
-      <h2>Collaborative Drawing Game</h2>
+      <h2>Drawing Canvas</h2>
       <div style={{ marginBottom: "10px" }}>
         <button
           onClick={() => handleSideChange("left")}
@@ -85,17 +86,93 @@ const GameRoom = ({ username, room }) => {
           Right
         </button>
         <button onClick={handleClear}>Clear Drawing</button>
-        <button onClick={() => handleColorChange("#FF0000")}>Red</button>
-        <button onClick={() => handleColorChange("#00FF00")}>Green</button>
+      </div>
+      <div>
+        <h3>Colors</h3>
+        <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => handleColorChange("#FF0000")}
+            style={{ backgroundColor: "#FF0000" }}
+          >
+            Red
+          </button>
+          <button
+            onClick={() => handleColorChange("#00FF00")}
+            style={{ backgroundColor: "#00FF00" }}
+          >
+            Green
+          </button>
+          <button
+            onClick={() => handleColorChange("#0000FF")}
+            style={{ backgroundColor: "#0000FF" }}
+          >
+            Blue
+          </button>
+          <button
+            onClick={() => handleColorChange("#FFA500")}
+            style={{ backgroundColor: "#FFA500" }}
+          >
+            Orange
+          </button>
+          <button
+            onClick={() => handleColorChange("#FFFF00")}
+            style={{ backgroundColor: "#FFFF00" }}
+          >
+            Yellow
+          </button>
+          <button
+            onClick={() => handleColorChange("#800080")}
+            style={{ backgroundColor: "#800080" }}
+          >
+            Purple
+          </button>
+          <button
+            onClick={() => handleColorChange("#00FFFF")}
+            style={{ backgroundColor: "#00FFFF" }}
+          >
+            Cyan
+          </button>
+          <button
+            onClick={() => handleColorChange("#FFC0CB")}
+            style={{ backgroundColor: "#FFC0CB" }}
+          >
+            Pink
+          </button>
+          <button
+            onClick={() => handleColorChange("#808080")}
+            style={{ backgroundColor: "#808080" }}
+          >
+            Gray
+          </button>
+          <button
+            onClick={() => handleColorChange("#000000")}
+            style={{ backgroundColor: "#000000", color: "#FFF" }}
+          >
+            Black
+          </button>
+          <button
+            onClick={() => handleColorChange("#FFFFFF")}
+            style={{ backgroundColor: "#FFFFFF", border: "1px solid #000" }}
+          >
+            White
+          </button>
+        </div>
+      </div>
+      <div>
+        <h3>Brush Sizes</h3>
         <button onClick={() => handleSizeChange(3)}>Small</button>
+        <button onClick={() => handleSizeChange(5)}>Medium</button>
         <button onClick={() => handleSizeChange(10)}>Large</button>
       </div>
-      {/* Flex container for canvas and chatbox */}
+      <div>
+        <h3>Prompt: {"Animal Farm"}</h3> {/* Display the prompt */}
+      </div>
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           gap: "20px",
+          marginTop: "20px",
         }}
       >
         <div style={{ flex: 2 }}>
@@ -112,11 +189,6 @@ const GameRoom = ({ username, room }) => {
           <ChatBox socket={socket} />
         </div>
       </div>
-      {/* Debugging drawing data
-      <div style={{ marginTop: "20px" }}>
-        <h3>Drawing Data (Debug)</h3>
-        <pre>{JSON.stringify(drawingData, null, 2)}</pre>
-      </div> */}
     </div>
   );
 };

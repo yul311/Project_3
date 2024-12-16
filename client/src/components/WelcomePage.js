@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import socket from "../services/socket";
 
 const WelcomePage = ({ joinLobby }) => {
   const [username, setUsername] = useState("");
@@ -13,22 +14,28 @@ const WelcomePage = ({ joinLobby }) => {
 
     if (username.trim() && lobby.trim()) {
       try {
-        const response = await fetch(`${backendUrl}/api/lobbies/joinLobby`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username, lobby }),
-        });
+        if (!socket.id) {
+          console.error("Socket not connected yet");
+          return;
+        }
+        console.log("Username", username);
+        console.log("Socket Id", socket.id);
+        console.log("Lobby", lobby);
+        const response = await axios.post(
+          `${backendUrl}/api/lobbies/join-lobby`,
+          { username: username, socketId: socket.id, lobby: lobby }
+        );
 
-        const data = await response.json();
-
-        if (response.ok) {
-          console.log(data.message); // Backend's success message
+        if (response.status === 200) {
+          console.log(response.data); // Backend's success message
           navigate(`/lobbypage/${lobby}`); // Redirect to the lobby page
+          joinLobby(username, lobby);
+        } else if (response.status === 400) {
+          console.error(response.data.message);
+          alert(response.data.message);
         } else {
-          console.error(data.message || "Failed to join the lobby");
-          alert(data.message || "An error occurred while joining the lobby.");
+          console.error("Failed to join the lobby");
+          alert("An error occurred while joining the lobby.");
         }
       } catch (error) {
         console.error("Network error:", error);
@@ -43,16 +50,25 @@ const WelcomePage = ({ joinLobby }) => {
     e.preventDefault();
     if (username.trim()) {
       try {
+        if (!socket.id) {
+          console.error("Socket not connected yet");
+          return;
+        }
+
         const response = await axios.post(
-          `${backendUrl}/api/lobbies/createLobby`,
+          `${backendUrl}/api/lobbies/create-lobby`,
           {
             username: username,
+            socketId: socket.id,
           }
         );
 
-        if (response.status == 200) {
-          console.log(response.status); // The returned lobby ID from backend
+        if (response.status === 200) {
+          joinLobby(username, response.data.lobbyId);
           navigate(`/lobbypage/${response.data.lobbyId}`);
+        } else if (response.status === 400) {
+          console.error(response.data.message);
+          alert(response.data.message);
         } else {
           console.error("Failed to create lobby");
           alert("An error occurred while creating the lobby.");

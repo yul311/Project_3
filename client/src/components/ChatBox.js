@@ -7,6 +7,7 @@ const ChatBox = ({ socket }) => {
   useEffect(() => {
     if (socket) {
       socket.on("chatMessage", (message) => {
+        console.log("New message", message);
         setMessages((prevMessages) => [...prevMessages, message]);
       });
     }
